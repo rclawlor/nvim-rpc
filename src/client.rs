@@ -26,7 +26,9 @@ where
 }
 
 
+/// Method of connecting to Neovim session
 pub enum Connection {
+    /// A Unix socket connection
     Socket(Client<UnixStream, UnixStream>)
 }
 
