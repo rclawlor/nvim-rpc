@@ -1,14 +1,23 @@
+use handlebars::Handlebars;
 use rmpv::{decode, Value};
-use serde_json;
+use serde::Serialize;
+use std::fs;
 use std::process::Command;
 
 
-#[derive(Debug)]
-struct Function {
+#[derive(Debug, Serialize)]
+pub struct Parameter {
+    name: String,
+    parameter_type: String
+}
+
+
+#[derive(Debug, Serialize)]
+pub struct Function {
     name: String,
     since: u64,
-    parameters: Vec<Value>,
-    return_type: Value,
+    parameters: Vec<Parameter>,
+    return_type: String,
     method: bool
 }
 
@@ -21,8 +30,8 @@ impl Function {
  
         let mut name = String::new();
         let mut since: u64 = 0;
-        let mut parameters: Vec<Value> = Vec::new();
-        let mut return_type = Value::Nil;
+        let mut parameters: Vec<Parameter> = Vec::new();
+        let mut return_type = String::new();
         let mut method = false;
         for (k, v) in args {
             match k {
@@ -33,10 +42,15 @@ impl Function {
                     since = v.as_u64().unwrap();
                 },
                 x if x.as_str().unwrap() == "parameters" => {
-                    parameters = v.as_array().unwrap().to_vec();
+                    for param in v.as_array().unwrap().iter() {
+                        parameters.push(
+                            Parameter { name: param[1].as_str().unwrap().to_string(),
+                                        parameter_type: value_to_type(&param[0].as_str().unwrap())
+                            });
+                    }
                 },
                 x if x.as_str().unwrap() == "return_type" => {
-                    return_type = v.clone();
+                    return_type = value_to_type(&v.as_str().unwrap())
                 },
                 x if x.as_str().unwrap() == "method" => {
                     method = v.as_bool().unwrap();
@@ -51,16 +65,49 @@ impl Function {
 }
 
 
-fn parse_functions(functions: &Value) {
+fn value_to_type(value: &str) -> String {
+    match value {
+        "Integer" => "i64".to_string(),
+        "Boolean" => "bool".to_string(),
+        "void" => "".to_string(),
+        array if array.starts_with("ArrayOf(") => {
+            format!(
+                "Vec<{}>",
+                value_to_type(
+                    array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1])
+                )
+        },
+        other => other.to_string()
+    }
+}
+
+
+fn parse_functions(functions: &Value) -> Vec<Function> {
     let arr = match functions {
         Value::Array(arr) => arr,
         _ => panic!()
     };
-    
-    for function in arr {
-        let f = Function::from_value(function);
-        println!("cargo:warning={:?}", f);
+
+    arr.iter()
+        .map(|x| Function::from_value(x))
+        .collect()
+}
+
+
+fn generate_api(
+    functions: Option<Vec<Function>>
+) {
+    let mut reg = Handlebars::new();
+    reg.register_template_file("function", "templates/function.hbs").unwrap();
+
+    let mut text = String::new();
+    if let Some(functions) = functions {
+        for func in functions {
+            text = format!("{}{}", text, reg.render("function", &func).unwrap());
+        }
     }
+
+    fs::write("templates/functions.rs", text).expect("Unable to write file");
 }
 
 
@@ -72,6 +119,7 @@ fn main() {
     let mut stdout = &output.stdout[..];
 
     let api = decode::read_value(&mut stdout).unwrap();
+    let mut functions: Option<Vec<Function>> = None;
     match api {
         Value::Map(map) => {
             for (k, v) in map.iter() {
@@ -80,7 +128,7 @@ fn main() {
                         println!("cargo:warning={}", x);
                     },
                     x if x.as_str().unwrap() == "functions" => {
-                        parse_functions(v)
+                        functions = Some(parse_functions(v));
                     },
                     other => println!("cargo:warning=Other: {}", other)
                 }
@@ -88,4 +136,6 @@ fn main() {
         },
         _ => ()
     }
+
+    generate_api(functions);
 }
