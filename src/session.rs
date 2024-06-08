@@ -1,3 +1,4 @@
+use rmpv::Value;
 use std::os::unix::net::UnixStream;
 
 use crate::{
@@ -20,5 +21,14 @@ impl Session {
         let client = Client::new(reader, writer);
 
         Ok(Session { client: Connection::Socket(client) })
+    }
+
+    /// Synchronous function call
+    pub fn call(&mut self, method: &str, args: Vec<Value>) -> Result<(), Error> {
+        match self.client {
+            Connection::Socket(ref mut client) => client.send_msg(method, args)?,
+        }
+
+        Ok(())
     }
 }
