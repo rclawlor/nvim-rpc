@@ -1,14 +1,14 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub mod client;
+pub mod error;
+pub mod session;
+
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::session::Session;
 
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn socket_connection() {
+        let session = Session::from_socket("/run/user/1000/nvim.13257.0").unwrap();
     }
 }
