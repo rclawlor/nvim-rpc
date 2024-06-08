@@ -1,1 +1,1 @@
-# nvim-rpc
+# rsnvim
