@@ -59,6 +59,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "genapi"
+version = "0.1.0"
+dependencies = [
+ "handlebars",
+ "rmpv",
+ "serde",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -119,11 +128,8 @@ dependencies = [
 name = "nvim-rpc"
 version = "0.0.1"
 dependencies = [
- "handlebars",
  "rmp",
  "rmpv",
- "serde",
- "serde_json",
 ]
 
 [[package]]
