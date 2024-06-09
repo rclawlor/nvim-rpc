@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time;
-use std::sync::{Arc, mpsc, Mutex};
 
 use crate::error::Error;
 use crate::handler::{DefaultHandler, NotificationHandler, RequestHandler};
@@ -14,9 +14,10 @@ use crate::rpc;
 type Sender = mpsc::Sender<Result<Value, Error>>;
 type Handles = Arc<Mutex<HashMap<u64, Sender>>>;
 
-
 /// The client controls the underlying transport mechanism used
 /// to communicate with a Neovim instance.
+///
+/// The `Client` should be instantiated via the `Nvim` or `Session` struct.
 pub struct Client<R, W>
 where
     R: Read + Send + 'static,
@@ -25,7 +26,7 @@ where
     reader: Option<BufReader<R>>,
     writer: Arc<Mutex<BufWriter<W>>>,
     handles: Handles,
-    msg_counter: u64
+    msg_counter: u64,
 }
 
 impl<R, W> Client<R, W>
@@ -39,7 +40,7 @@ where
             reader: Some(BufReader::new(reader)),
             writer: Arc::new(Mutex::new(BufWriter::new(writer))),
             handles: handles.clone(),
-            msg_counter: 0
+            msg_counter: 0,
         }
     }
 
@@ -56,10 +57,7 @@ where
 
         // Keep track of sender to return the response to the correct receiver
         let (sender, receiver) = mpsc::channel();
-        self.handles
-            .lock()
-            .unwrap()
-            .insert(msgid, sender);
+        self.handles.lock().unwrap().insert(msgid, sender);
 
         let writer = &mut *self.writer.lock().unwrap();
         rpc::encode(writer, req)?;
@@ -72,11 +70,15 @@ where
                 Err(mpsc::TryRecvError::Empty) => {
                     thread::sleep(delay);
                     if instant.elapsed() >= dur {
-                        return Err(Error::TimeoutError("Timeout when waiting for RPC response".to_string()));
+                        return Err(Error::TimeoutError(
+                            "Timeout when waiting for RPC response".to_string(),
+                        ));
                     }
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    return Err(Error::MpscError("Channel disconnected while waiting for RPC response".to_string()));
+                    return Err(Error::MpscError(
+                        "Channel disconnected while waiting for RPC response".to_string(),
+                    ));
                 }
                 Ok(val) => return val,
             };
@@ -103,7 +105,7 @@ where
             self.writer.clone(),
             self.handles.clone(),
             r,
-            n
+            n,
         );
     }
 
@@ -112,13 +114,12 @@ where
         writer: Arc<Mutex<BufWriter<W>>>,
         handles: Handles,
         request_handler: Box<dyn RequestHandler + Send>,
-        notification_handler: Box<dyn NotificationHandler + Send>
-    ) -> JoinHandle<()>
-        {
+        notification_handler: Box<dyn NotificationHandler + Send>,
+    ) -> JoinHandle<()> {
         thread::spawn(move || loop {
             let msg = match rpc::decode(&mut reader) {
                 Ok(msg) => msg,
-                Err(_) => return
+                Err(_) => return,
             };
 
             match msg {
@@ -131,18 +132,18 @@ where
                         Ok(result) => rpc::RpcMessage::RpcResponse {
                             msgid,
                             error: Value::Nil,
-                            result
+                            result,
                         },
                         Err(error) => rpc::RpcMessage::RpcResponse {
                             msgid,
                             error: Value::from(error),
-                            result: Value::Nil
-                        }
+                            result: Value::Nil,
+                        },
                     };
 
                     let writer = &mut *writer.lock().unwrap();
                     rpc::encode(writer, response).unwrap();
-                },
+                }
                 rpc::RpcMessage::RpcResponse {
                     msgid,
                     result,
@@ -150,15 +151,16 @@ where
                 } => {
                     let sender = Self::find_sender(&handles, msgid);
                     if error != Value::Nil {
-                        sender.send(Err(Error::MpscError("Error in RPC response".to_string()))).unwrap();
+                        sender
+                            .send(Err(Error::MpscError("Error in RPC response".to_string())))
+                            .unwrap();
                     } else {
                         sender.send(Ok(result)).unwrap();
                     }
                 }
-                rpc::RpcMessage::RpcNotification {
-                    method,
-                    params
-                } => notification_handler.handle_notification(method, params)
+                rpc::RpcMessage::RpcNotification { method, params } => {
+                    notification_handler.handle_notification(method, params)
+                }
             };
         })
     }

@@ -14,7 +14,7 @@ pub enum Error {
     /// An error when the MPSC disconnects
     MpscError(String),
     /// An error when an RPC method is not implemented
-    NotImplemented(String)
+    NotImplemented(String),
 }
 
 impl std::fmt::Display for Error {
@@ -28,7 +28,7 @@ impl std::fmt::Display for Error {
                 Error::EncodingError(err) => err,
                 Error::TimeoutError(err) => err,
                 Error::MpscError(err) => err,
-                Error::NotImplemented(err) => err
+                Error::NotImplemented(err) => err,
             }
         )
     }
@@ -57,4 +57,3 @@ impl From<rmpv::encode::Error> for Error {
         Self::EncodingError(value.to_string())
     }
 }
-

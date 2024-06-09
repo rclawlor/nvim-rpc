@@ -10,14 +10,14 @@ impl {{name}} {
     {{#each functions}}
     /// Since: {{since}}
     pub fn {{name}}(&mut self{{#each parameters}}, {{this.name}}: {{{this.parameter_type}}}{{/each}}) -> Result<Value, Error> {
-        Ok(self.session.call(
+        self.session.call(
             "{{@root.prefix}}{{name}}",
             {{#if parameters.[0]}}
             value_vec!({{#each parameters}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}})
             {{else}}
             Vec::new()
             {{/if}}
-        )?)
+        )
     }
     {{#unless @last}}
 

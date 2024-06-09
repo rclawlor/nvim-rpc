@@ -62,12 +62,12 @@ impl Function {
                     for param in v.as_array().unwrap().iter() {
                         parameters.push(Parameter {
                             name: param[1].as_str().unwrap().to_string(),
-                            parameter_type: value_to_type(&param[0].as_str().unwrap()),
+                            parameter_type: value_to_type(param[0].as_str().unwrap()),
                         });
                     }
                 }
                 x if x.as_str().unwrap() == "return_type" => {
-                    return_type = value_to_type(&v.as_str().unwrap())
+                    return_type = value_to_type(v.as_str().unwrap())
                 }
                 x if x.as_str().unwrap() == "method" => {
                     method = v.as_bool().unwrap();
@@ -111,7 +111,7 @@ impl Type {
                     for param in v.as_array().unwrap().iter() {
                         parameters.push(Parameter {
                             name: param[1].as_str().unwrap().to_string(),
-                            parameter_type: value_to_type(&param[0].as_str().unwrap()),
+                            parameter_type: value_to_type(param[0].as_str().unwrap()),
                         });
                     }
                 }
@@ -146,7 +146,7 @@ fn parse_functions(functions: &Value) -> Vec<Function> {
         _ => panic!(),
     };
 
-    arr.iter().map(|x| Function::from_value(x)).collect()
+    arr.iter().map(Function::from_value).collect()
 }
 
 /// Generate Rust struct/enums for each type in the API
@@ -156,7 +156,7 @@ fn parse_types(types: &Value) -> Vec<Type> {
         _ => panic!(),
     };
 
-    map.iter().map(|x| Type::from_map(x)).collect()
+    map.iter().map(Type::from_map).collect()
 }
 
 /// Strips the `prefix` off a function name and removes the `param` to allow for
@@ -178,37 +178,30 @@ fn strip_prefix(f: &Function, prefix: &str, param: &str) -> Function {
         None => f_mod.name,
     };
     let p = f_mod.parameters;
-    f_mod.parameters = p
-        .into_iter()
-        .filter(|x| x.name != param.to_string())
-        .collect();
+    f_mod.parameters = p.into_iter().filter(|x| x.name != *param).collect();
 
     f_mod
 }
 
-
 /// Some functions in the Neovim API use `fn` as an input name which is a
 /// Rust keyword. This function maps these to `function` so that they can be used.
-fn change_keywords(f:  &Function) -> Function {
+fn change_keywords(f: &Function) -> Function {
     let mut f_mod = f.clone();
     let p = f_mod.parameters;
     f_mod.parameters = p
         .into_iter()
-        .map(|x| {
-            match x {
-                x if x.name == "fn" => {
-                    let mut x_mod = x.clone();
-                    x_mod.name = "function".to_string();
-                    x_mod
-                },
-                other => other
+        .map(|x| match x {
+            x if x.name == "fn" => {
+                let mut x_mod = x.clone();
+                x_mod.name = "function".to_string();
+                x_mod
             }
+            other => other,
         })
         .collect();
 
     f_mod
 }
-
 
 /// Save the generated functions to a Rust file
 fn save_functions(
@@ -217,7 +210,7 @@ fn save_functions(
     structname: &str,
     prefix: &str,
     param: &str,
-    functions: &Vec<Function>,
+    functions: &[Function],
 ) -> Result<(), Error> {
     fs::write(
         format!("build/{}.rs", filename),
@@ -227,7 +220,7 @@ fn save_functions(
                 name: structname,
                 prefix,
                 functions: &functions
-                    .into_iter()
+                    .iter()
                     .map(|x| strip_prefix(x, prefix, param))
                     .map(|x| change_keywords(&x))
                     .collect(),
@@ -250,7 +243,7 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
     let mut window_functions: Vec<Function> = Vec::new();
     if let Some(functions) = functions {
         for f in functions {
-            if f.deprecated_since == None {
+            if f.deprecated_since.is_none() {
                 match &f {
                     f if f.name.starts_with("nvim_buf_") => {
                         buffer_functions.push(f.clone());
@@ -279,14 +272,7 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
         "buffer",
         &buffer_functions,
     )?;
-    save_functions(
-        &registry,
-        "nvim",
-        "Nvim",
-        "nvim_",
-        "",
-        &nvim_functions
-    )?;
+    save_functions(&registry, "nvim", "Nvim", "nvim_", "", &nvim_functions)?;
     save_functions(
         &registry,
         "tabpage",
@@ -318,24 +304,21 @@ fn main() {
 
     let mut _types: Option<Vec<Type>> = None;
     let mut functions: Option<Vec<Function>> = None;
-    match api {
-        Value::Map(map) => {
-            for (k, v) in map.iter() {
-                match k {
-                    x if x.as_str().unwrap() == "version" => {
-                        println!("cargo:warning={}", x);
-                    }
-                    x if x.as_str().unwrap() == "functions" => {
-                        functions = Some(parse_functions(v));
-                    }
-                    x if x.as_str().unwrap() == "types" => {
-                        _types = Some(parse_types(v));
-                    }
-                    other => println!("cargo:warning=Other: {}", other),
+    if let Value::Map(map) = api {
+        for (k, v) in map.iter() {
+            match k {
+                x if x.as_str().unwrap() == "version" => {
+                    println!("cargo:warning={}", x);
                 }
+                x if x.as_str().unwrap() == "functions" => {
+                    functions = Some(parse_functions(v));
+                }
+                x if x.as_str().unwrap() == "types" => {
+                    _types = Some(parse_types(v));
+                }
+                other => println!("cargo:warning=Other: {}", other),
             }
         }
-        _ => (),
     }
 
     generate_api(functions).unwrap();
