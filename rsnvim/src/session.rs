@@ -3,7 +3,7 @@ use std::os::unix::net::UnixStream;
 
 use crate::{
     client::{Client, Connection},
-    error::Error,
+    error::Error
 };
 
 /// The current Neovim session
@@ -18,7 +18,8 @@ impl Session {
     pub fn from_socket(path: &str) -> Result<Session, Error> {
         let reader = UnixStream::connect(path)?;
         let writer = reader.try_clone()?;
-        let client = Client::new(reader, writer);
+        let mut client = Client::new(reader, writer);
+        client.start_event_loop();
 
         Ok(Session {
             client: Connection::Socket(client),
@@ -29,7 +30,7 @@ impl Session {
     pub fn call(&mut self, method: &str, args: Vec<Value>) -> Result<(), Error> {
         match self.client {
             Connection::Socket(ref mut client) => client.call(method, args)?,
-        }
+        };
 
         Ok(())
     }

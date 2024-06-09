@@ -12,4 +12,14 @@ impl Nvim {
 
         Ok(())
     }
+
+    /// Since: 1
+    pub fn subscribe(&mut self, event: String) -> Result<(), Error> {
+        self.session.call(
+            "nvim_subscribe",
+            value_vec!(event)
+        )?;
+
+        Ok(())
+    }
 }

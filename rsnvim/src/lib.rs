@@ -11,7 +11,7 @@ mod tests {
 
     #[test]
     fn socket_connection() {
-        let mut nvim = Nvim::from_socket("/run/user/1000/nvim.31150.0").unwrap();
-        nvim.command("echo \"Hello, Nvim!\"".to_string());
+        let mut nvim = Nvim::from_socket("/run/user/1000/nvim.47339.0").unwrap();
+        nvim.subscribe("Hello".to_string()).unwrap();
     }
 }
