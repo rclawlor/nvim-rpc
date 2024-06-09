@@ -115,14 +115,143 @@ impl Nvim {
 /// A Neovim buffer
 ///
 /// This struct exposes each way a user can create and interact with a buffer.
-pub struct Buffer {}
+pub struct Buffer {
+    data: Value
+}
+
+impl Buffer {
+    pub fn new(data: Value) -> Self {
+        Buffer { data }
+    }
+}
+
+impl From<Value> for Buffer {
+    fn from(value: Value) -> Self {
+        Buffer { data: value }
+    }
+}
+
+impl From<Buffer> for Value {
+    fn from(value: Buffer) -> Self {
+        value.data
+    }
+}
 
 /// A Neovim tabpage
 ///
 /// This struct exposes each way a user can create and interact with a tabpage.
-pub struct Tabpage {}
+pub struct Tabpage {
+    data: Value
+}
+
+impl Tabpage {
+    pub fn new(data: Value) -> Self {
+        Tabpage { data }
+    }
+}
+
+impl From<Value> for Tabpage {
+    fn from(value: Value) -> Self {
+        Tabpage { data: value }
+    }
+}
+
+impl From<Tabpage> for Value {
+    fn from(value: Tabpage) -> Self {
+        value.data
+    }
+}
 
 /// A Neovim buffer
 ///
 /// This struct exposes each way a user can create and interact with a window.
-pub struct Window {}
+pub struct Window {
+    data: Value
+}
+
+impl Window {
+    pub fn new(data: Value) -> Self {
+        Window { data }
+    }
+}
+
+impl From<Value> for Window {
+    fn from(value: Value) -> Self {
+        Window { data: value }
+    }
+}
+
+impl From<Window> for Value {
+    fn from(value: Window) -> Self {
+        value.data
+    }
+}
+
+/// Trait to convert any type to rmpv::Value
+pub trait AsValue {
+    fn convert(&self) -> Value;
+}
+
+macro_rules! impl_asvalue {
+    ($arg:ty) => {
+        impl AsValue for $arg {
+            fn convert(&self) -> Value {
+                Value::from(*self)
+            }
+        }
+    };
+}
+
+impl_asvalue!(u64);
+impl_asvalue!(i64);
+impl_asvalue!(f64);
+impl_asvalue!(bool);
+
+impl AsValue for Value {
+    fn convert(&self) -> Value {
+        self.clone()
+    }
+}
+
+impl AsValue for String {
+    fn convert(&self) -> Value {
+        Value::from(self.clone())
+    }
+}
+
+impl AsValue for Vec<Value> {
+    fn convert(&self) -> Value {
+        Value::from(self.clone())
+    }
+}
+
+impl AsValue for Vec<String> {
+    fn convert(&self) -> Value {
+        let v: Vec<Value> = self.iter().map(|x| Value::from(x.clone())).collect();
+        Value::from(v)
+    }
+}
+
+impl AsValue for Buffer {
+    fn convert(&self) -> Value {
+        self.data.clone()
+    }
+}
+
+impl AsValue for Tabpage {
+    fn convert(&self) -> Value {
+        self.data.clone()
+    }
+}
+
+impl AsValue for Window {
+    fn convert(&self) -> Value {
+        self.data.clone()
+    }
+}
+
+impl AsValue for Vec<(Value, Value)> {
+    fn convert(&self) -> Value {
+        Value::Map(self.clone())
+    }
+}

@@ -127,14 +127,18 @@ impl Type {
 fn value_to_type(value: &str) -> String {
     match value {
         "Integer" => "i64".to_string(),
+        "Float" => "f64".to_string(),
         "Boolean" => "bool".to_string(),
         "void" => "".to_string(),
+        "Array" => "Vec<Value>".to_string(),
+        "Object" => "Value".to_string(),
         array if array.starts_with("ArrayOf(") => {
             format!(
                 "Vec<{}>",
                 value_to_type(array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1])
             )
-        }
+        },
+        "Dictionary" => "Vec<(Value, Value)>".to_string(),
         other => other.to_string(),
     }
 }
@@ -193,9 +197,14 @@ fn change_keywords(f: &Function) -> Function {
         .map(|x| match x {
             x if x.name == "fn" => {
                 let mut x_mod = x.clone();
-                x_mod.name = "function".to_string();
+                x_mod.name = "r#fn".to_string();
                 x_mod
-            }
+            },
+            x if x.name == "type" => {
+                let mut x_mod = x.clone();
+                x_mod.name = "r#type".to_string();
+                x_mod
+            },
             other => other,
         })
         .collect();
@@ -227,6 +236,12 @@ fn save_functions(
             },
         )?,
     )?;
+
+    Command::new("rustfmt")
+        .arg(format!("build/{}.rs", filename))
+        .output()
+        .expect("Failed to format generated file");
+
     Ok(())
 }
 
