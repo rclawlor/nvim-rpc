@@ -10,7 +10,8 @@ use error::Error;
 /// The name of a struct to impl for and all associated functions
 #[derive(Clone, Debug, Serialize)]
 pub struct Impl<'a> {
-    name: String,
+    name: &'a str,
+    prefix: &'a str,
     functions: &'a Vec<Function>,
 }
 
@@ -50,10 +51,10 @@ impl Function {
             match k {
                 x if x.as_str().unwrap() == "name" => {
                     name = v.as_str().unwrap().to_string();
-                },
+                }
                 x if x.as_str().unwrap() == "since" => {
                     since = Some(v.as_u64().unwrap());
-                },
+                }
                 x if x.as_str().unwrap() == "deprecated_since" => {
                     deprecated_since = Some(v.as_u64().unwrap());
                 }
@@ -64,13 +65,13 @@ impl Function {
                             parameter_type: value_to_type(&param[0].as_str().unwrap()),
                         });
                     }
-                },
+                }
                 x if x.as_str().unwrap() == "return_type" => {
                     return_type = value_to_type(&v.as_str().unwrap())
-                },
+                }
                 x if x.as_str().unwrap() == "method" => {
                     method = v.as_bool().unwrap();
-                },
+                }
                 _ => (),
             }
         }
@@ -172,7 +173,10 @@ fn parse_types(types: &Value) -> Vec<Type> {
 /// ```
 fn strip_prefix(f: &Function, prefix: &str, param: &str) -> Function {
     let mut f_mod = f.clone();
-    f_mod.name = f.name.strip_prefix(prefix).unwrap().to_string();
+    f_mod.name = match f.name.strip_prefix(prefix) {
+        Some(name) => name.to_string(),
+        None => f_mod.name,
+    };
     let p = f_mod.parameters;
     f_mod.parameters = p
         .into_iter()
@@ -182,11 +186,37 @@ fn strip_prefix(f: &Function, prefix: &str, param: &str) -> Function {
     f_mod
 }
 
+
+/// Some functions in the Neovim API use `fn` as an input name which is a
+/// Rust keyword. This function maps these to `function` so that they can be used.
+fn change_keywords(f:  &Function) -> Function {
+    let mut f_mod = f.clone();
+    let p = f_mod.parameters;
+    f_mod.parameters = p
+        .into_iter()
+        .map(|x| {
+            match x {
+                x if x.name == "fn" => {
+                    let mut x_mod = x.clone();
+                    x_mod.name = "function".to_string();
+                    x_mod
+                },
+                other => other
+            }
+        })
+        .collect();
+
+    f_mod
+}
+
+
 /// Save the generated functions to a Rust file
 fn save_functions(
     registry: &Handlebars,
     filename: &str,
     structname: &str,
+    prefix: &str,
+    param: &str,
     functions: &Vec<Function>,
 ) -> Result<(), Error> {
     fs::write(
@@ -194,8 +224,13 @@ fn save_functions(
         registry.render(
             "impl",
             &Impl {
-                name: structname.to_string(),
-                functions,
+                name: structname,
+                prefix,
+                functions: &functions
+                    .into_iter()
+                    .map(|x| strip_prefix(x, prefix, param))
+                    .map(|x| change_keywords(&x))
+                    .collect(),
             },
         )?,
     )?;
@@ -218,14 +253,14 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
             if f.deprecated_since == None {
                 match &f {
                     f if f.name.starts_with("nvim_buf_") => {
-                        buffer_functions.push(strip_prefix(f, "nvim_buf_", "buffer"));
-                    },
+                        buffer_functions.push(f.clone());
+                    }
                     f if f.name.starts_with("nvim_tabpage_") => {
-                        tabpage_functions.push(strip_prefix(f, "nvim_tabpage_", "tabpage"));
-                    },
+                        tabpage_functions.push(f.clone());
+                    }
                     f if f.name.starts_with("nvim_win_") => {
-                        window_functions.push(strip_prefix(f, "nvim_win_", "window"));
-                    },
+                        window_functions.push(f.clone());
+                    }
                     f => {
                         nvim_functions.push(f.clone());
                     }
@@ -236,10 +271,38 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
 
     fs::create_dir_all("build").expect("Unable to create folder");
 
-    save_functions(&registry, "buffer", "Buffer", &buffer_functions)?;
-    save_functions(&registry, "nvim", "Nvim", &nvim_functions)?;
-    save_functions(&registry, "tabpage", "Tabpage", &tabpage_functions)?;
-    save_functions(&registry, "window", "Window", &window_functions)?;
+    save_functions(
+        &registry,
+        "buffer",
+        "Buffer",
+        "nvim_buf_",
+        "buffer",
+        &buffer_functions,
+    )?;
+    save_functions(
+        &registry,
+        "nvim",
+        "Nvim",
+        "nvim_",
+        "",
+        &nvim_functions
+    )?;
+    save_functions(
+        &registry,
+        "tabpage",
+        "Tabpage",
+        "nvim_tabpage_",
+        "tabpage",
+        &tabpage_functions,
+    )?;
+    save_functions(
+        &registry,
+        "window",
+        "Window",
+        "nvim_win_",
+        "window",
+        &window_functions,
+    )?;
 
     Ok(())
 }

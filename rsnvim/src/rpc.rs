@@ -31,6 +31,18 @@ macro_rules! args_as_value {
     }}
 }
 
+/// Creates a vector of rmpv::Value from the input args
+#[macro_export]
+macro_rules! value_vec {
+    ($($arg:expr), *) => {{
+        let mut vec = Vec::new();
+        $(
+            vec.push(Value::from($arg));
+        )*
+        vec
+    }}
+}
+
 /// Encode as a MessagePack RPC message
 pub fn encode<W: Write>(writer: &mut W, msg: RpcMessage) -> Result<(), Error> {
     match msg {

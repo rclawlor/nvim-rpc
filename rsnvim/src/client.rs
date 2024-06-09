@@ -27,7 +27,8 @@ where
         }
     }
 
-    pub fn send_msg(&mut self, method: &str, args: Vec<Value>) -> Result<(), Error> {
+    pub fn call(&mut self, method: &str, args: Vec<Value>) -> Result<(), Error> {
+        println!("cargo:warning={}: {:?}", method, args);
         let req = rpc::RpcMessage::RpcRequest {
             msgid: 1,
             method: method.to_owned(),
@@ -36,6 +37,8 @@ where
 
         let writer = &mut *self.writer.lock().unwrap();
         rpc::encode(writer, req)?;
+
+        std::thread::sleep(std::time::Duration::from_secs(1));
 
         Ok(())
     }

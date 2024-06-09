@@ -28,7 +28,7 @@ impl Session {
     /// Synchronous function call
     pub fn call(&mut self, method: &str, args: Vec<Value>) -> Result<(), Error> {
         match self.client {
-            Connection::Socket(ref mut client) => client.send_msg(method, args)?,
+            Connection::Socket(ref mut client) => client.call(method, args)?,
         }
 
         Ok(())
