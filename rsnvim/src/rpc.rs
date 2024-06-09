@@ -3,7 +3,6 @@ use std::io::Write;
 
 use crate::error::Error;
 
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum RpcMessage {
     RpcRequest {
@@ -22,7 +21,6 @@ pub enum RpcMessage {
     }, // 2
 }
 
-
 macro_rules! args_as_value {
     ($($arg:expr), *) => {{
         let mut vec = Vec::new();
@@ -32,7 +30,6 @@ macro_rules! args_as_value {
         Value::from(vec)
     }}
 }
-
 
 /// Encode as a MessagePack RPC message
 pub fn encode<W: Write>(writer: &mut W, msg: RpcMessage) -> Result<(), Error> {

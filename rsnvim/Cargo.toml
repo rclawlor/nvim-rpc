@@ -1,5 +1,5 @@
 [package]
-name = "nvim-rpc"
+name = "rsnvim"
 version = "0.0.1"
 edition = "2021"
 

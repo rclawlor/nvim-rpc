@@ -6,14 +6,13 @@ use std::sync::{Arc, Mutex};
 use crate::error::Error;
 use crate::rpc;
 
-
 pub struct Client<R, W>
 where
     R: Read + Send + 'static,
     W: Write + Send + 'static,
 {
     reader: BufReader<R>,
-    writer: Arc<Mutex<BufWriter<W>>>
+    writer: Arc<Mutex<BufWriter<W>>>,
 }
 
 impl<R, W> Client<R, W>
@@ -24,7 +23,7 @@ where
     pub fn new(reader: R, writer: W) -> Self {
         Client {
             reader: BufReader::new(reader),
-            writer: Arc::new(Mutex::new(BufWriter::new(writer)))
+            writer: Arc::new(Mutex::new(BufWriter::new(writer))),
         }
     }
 
@@ -35,7 +34,6 @@ where
             params: args,
         };
 
-
         let writer = &mut *self.writer.lock().unwrap();
         rpc::encode(writer, req)?;
 
@@ -43,10 +41,8 @@ where
     }
 }
 
-
 /// Method of connecting to Neovim session
 pub enum Connection {
     /// A Unix socket connection
-    Socket(Client<UnixStream, UnixStream>)
+    Socket(Client<UnixStream, UnixStream>),
 }
-

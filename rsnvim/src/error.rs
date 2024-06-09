@@ -1,10 +1,10 @@
-/// Error types for nvim-rpc
+/// Error types for rsnvim
 #[derive(Debug)]
 pub enum Error {
     /// An error when instantiating the RPC connection
     ConnectionError(String),
     /// An error when encoding the RPC message
-    EncodingError(String)
+    EncodingError(String),
 }
 
 impl From<std::io::Error> for Error {
@@ -12,7 +12,6 @@ impl From<std::io::Error> for Error {
         Self::ConnectionError(value.to_string())
     }
 }
-
 
 impl From<rmpv::encode::Error> for Error {
     fn from(value: rmpv::encode::Error) -> Self {

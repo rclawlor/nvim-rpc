@@ -1,9 +1,7 @@
 use std::sync::mpsc;
 
-
 pub struct Handler {
-    sender: mpsc::Sender<String>
+    sender: mpsc::Sender<String>,
 }
 
-impl Handler {
-}
+impl Handler {}

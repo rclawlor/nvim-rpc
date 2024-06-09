@@ -3,14 +3,14 @@ use std::os::unix::net::UnixStream;
 
 use crate::{
     client::{Client, Connection},
-    error::Error
+    error::Error,
 };
 
 /// The current Neovim session
 ///
 /// Used to send and receive messages to the Neovim session
 pub struct Session {
-    client: Connection
+    client: Connection,
 }
 
 impl Session {
@@ -20,7 +20,9 @@ impl Session {
         let writer = reader.try_clone()?;
         let client = Client::new(reader, writer);
 
-        Ok(Session { client: Connection::Socket(client) })
+        Ok(Session {
+            client: Connection::Socket(client),
+        })
     }
 
     /// Synchronous function call

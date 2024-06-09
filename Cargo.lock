@@ -125,14 +125,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nvim-rpc"
-version = "0.0.1"
-dependencies = [
- "rmp",
- "rmpv",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -226,6 +218,14 @@ checksum = "58450723cd9ee93273ce44a20b6ec4efe17f8ed2e3631474387bfdecf18bb2a9"
 dependencies = [
  "num-traits",
  "rmp",
+]
+
+[[package]]
+name = "rsnvim"
+version = "0.0.1"
+dependencies = [
+ "rmp",
+ "rmpv",
 ]
 
 [[package]]
