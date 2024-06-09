@@ -25,7 +25,8 @@ pub struct Parameter {
 #[derive(Clone, Debug, Serialize)]
 pub struct Function {
     name: String,
-    since: u64,
+    since: Option<u64>,
+    deprecated_since: Option<u64>,
     parameters: Vec<Parameter>,
     return_type: String,
     method: bool,
@@ -40,7 +41,8 @@ impl Function {
         };
 
         let mut name = String::new();
-        let mut since: u64 = 0;
+        let mut since: Option<u64> = None;
+        let mut deprecated_since: Option<u64> = None;
         let mut parameters: Vec<Parameter> = Vec::new();
         let mut return_type = String::new();
         let mut method = false;
@@ -48,9 +50,12 @@ impl Function {
             match k {
                 x if x.as_str().unwrap() == "name" => {
                     name = v.as_str().unwrap().to_string();
-                }
+                },
                 x if x.as_str().unwrap() == "since" => {
-                    since = v.as_u64().unwrap();
+                    since = Some(v.as_u64().unwrap());
+                },
+                x if x.as_str().unwrap() == "deprecated_since" => {
+                    deprecated_since = Some(v.as_u64().unwrap());
                 }
                 x if x.as_str().unwrap() == "parameters" => {
                     for param in v.as_array().unwrap().iter() {
@@ -59,13 +64,13 @@ impl Function {
                             parameter_type: value_to_type(&param[0].as_str().unwrap()),
                         });
                     }
-                }
+                },
                 x if x.as_str().unwrap() == "return_type" => {
                     return_type = value_to_type(&v.as_str().unwrap())
-                }
+                },
                 x if x.as_str().unwrap() == "method" => {
                     method = v.as_bool().unwrap();
-                }
+                },
                 _ => (),
             }
         }
@@ -73,6 +78,7 @@ impl Function {
         Function {
             name,
             since,
+            deprecated_since,
             parameters,
             return_type,
             method,
@@ -209,18 +215,20 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
     let mut window_functions: Vec<Function> = Vec::new();
     if let Some(functions) = functions {
         for f in functions {
-            match &f {
-                f if f.name.starts_with("nvim_buf_") => {
-                    buffer_functions.push(strip_prefix(f, "nvim_buf_", "buffer"));
-                }
-                f if f.name.starts_with("nvim_tabpage_") => {
-                    tabpage_functions.push(strip_prefix(f, "nvim_tabpage_", "tabpage"));
-                }
-                f if f.name.starts_with("nvim_win_") => {
-                    window_functions.push(strip_prefix(f, "nvim_win_", "window"));
-                }
-                f => {
-                    nvim_functions.push(f.clone());
+            if f.deprecated_since == None {
+                match &f {
+                    f if f.name.starts_with("nvim_buf_") => {
+                        buffer_functions.push(strip_prefix(f, "nvim_buf_", "buffer"));
+                    },
+                    f if f.name.starts_with("nvim_tabpage_") => {
+                        tabpage_functions.push(strip_prefix(f, "nvim_tabpage_", "tabpage"));
+                    },
+                    f if f.name.starts_with("nvim_win_") => {
+                        window_functions.push(strip_prefix(f, "nvim_win_", "window"));
+                    },
+                    f => {
+                        nvim_functions.push(f.clone());
+                    }
                 }
             }
         }
@@ -229,6 +237,7 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
     fs::create_dir_all("build").expect("Unable to create folder");
 
     save_functions(&registry, "buffer", "Buffer", &buffer_functions)?;
+    save_functions(&registry, "nvim", "Nvim", &nvim_functions)?;
     save_functions(&registry, "tabpage", "Tabpage", &tabpage_functions)?;
     save_functions(&registry, "window", "Window", &window_functions)?;
 
@@ -243,6 +252,7 @@ fn main() {
     let mut stdout = &output.stdout[..];
 
     let api = decode::read_value(&mut stdout).unwrap();
+
     let mut _types: Option<Vec<Type>> = None;
     let mut functions: Option<Vec<Function>> = None;
     match api {
