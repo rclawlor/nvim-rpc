@@ -1,7 +1,31 @@
-use std::sync::mpsc;
+use rmpv::Value;
 
-pub struct Handler {
-    sender: mpsc::Sender<String>,
+
+pub trait RequestHandler {
+    fn handle_request(&self, msgid: u64, method: String, params: Vec<Value>);
 }
 
-impl Handler {}
+pub trait NotificationHandler {
+    fn handle_notification(&self, method: String, params: Vec<Value>);
+}
+
+
+pub struct DefaultHandler {}
+
+impl DefaultHandler {
+    pub fn new() -> Self {
+        DefaultHandler {  }
+    }
+}
+
+impl RequestHandler for DefaultHandler {
+    fn handle_request(&self, msgid: u64, method: String, params: Vec<Value>) {
+        
+    }
+}
+
+impl NotificationHandler for DefaultHandler {
+    fn handle_notification(&self, method: String, params: Vec<Value>) {
+        
+    }
+}

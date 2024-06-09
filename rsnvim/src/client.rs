@@ -1,18 +1,22 @@
 use rmpv::Value;
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter, Read, Write};
+use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
 use std::thread::{self, JoinHandle};
 use std::time;
 use std::sync::{Arc, mpsc, Mutex};
 
 use crate::error::Error;
-use crate::rpc::{self, decode};
+use crate::handler::{DefaultHandler, NotificationHandler, RequestHandler};
+use crate::rpc;
 
 type Sender = mpsc::Sender<Result<Value, Error>>;
 type Handles = Arc<Mutex<HashMap<u64, Sender>>>;
 
 
+/// The client controls the underlying transport mechanism used
+/// to communicate with a Neovim instance.
 pub struct Client<R, W>
 where
     R: Read + Send + 'static,
@@ -39,6 +43,7 @@ where
         }
     }
 
+    /// Call a Neovim API method
     pub fn call(&mut self, method: &str, args: Vec<Value>) -> Result<Value, Error> {
         let msgid = self.msg_counter;
         self.msg_counter += 1;
@@ -78,17 +83,31 @@ where
         }
     }
 
+    /// Get the sender responsible for the request with ID `msgid`
     fn find_sender(handles: &Handles, msgid: u64) -> Sender {
         let mut handles = handles.lock().unwrap();
 
         handles.remove(&msgid).unwrap()
     }
 
-    pub fn start_event_loop(&mut self) { 
-        Self::dispatch_read_thread(self.reader.take().unwrap(), self.handles.clone());
+    /// Spawn a thread to handle incoming RPC messages
+    pub fn start_event_loop(
+        &mut self,
+        request_handler: Option<Box<dyn RequestHandler + Send>>,
+        notification_handler: Option<Box<dyn NotificationHandler + Send>>,
+    ) {
+        let r = request_handler.unwrap_or(Box::new(DefaultHandler::new()));
+        let n = notification_handler.unwrap_or(Box::new(DefaultHandler::new()));
+        Self::dispatch_read_thread(self.reader.take().unwrap(), self.handles.clone(), r, n);
     }
 
-    fn dispatch_read_thread(mut reader: BufReader<R>, handles: Handles) -> JoinHandle<()> {
+    fn dispatch_read_thread(
+        mut reader: BufReader<R>,
+        handles: Handles,
+        request_handler: Box<dyn RequestHandler + Send>,
+        notification_handler: Box<dyn NotificationHandler + Send>
+    ) -> JoinHandle<()>
+        {
         thread::spawn(move || loop {
             let msg = match rpc::decode(&mut reader) {
                 Ok(msg) => msg,
@@ -100,7 +119,7 @@ where
                     msgid,
                     method,
                     params,
-                } => {},
+                } => request_handler.handle_request(msgid, method, params),
                 rpc::RpcMessage::RpcResponse {
                     msgid,
                     result,
@@ -113,18 +132,20 @@ where
                         sender.send(Ok(result)).unwrap();
                     }
                 }
-                rpc::RpcMessage::RpcNotification { method, params } => {}
+                rpc::RpcMessage::RpcNotification {
+                    method,
+                    params
+                } => notification_handler.handle_notification(method, params)
             };
         })
-    }
-
-    fn read_handler() {
-
     }
 }
 
 /// Method of connecting to Neovim session
 pub enum Connection {
+    /// A TCP socket connection
+    TCP(Client<TcpStream, TcpStream>),
     /// A Unix socket connection
-    Socket(Client<UnixStream, UnixStream>),
+    #[cfg(unix)]
+    UNIX(Client<UnixStream, UnixStream>),
 }

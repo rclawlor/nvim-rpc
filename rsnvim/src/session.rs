@@ -1,9 +1,10 @@
 use rmpv::Value;
+use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
 
 use crate::{
     client::{Client, Connection},
-    error::Error
+    error::Error, handler::{NotificationHandler, RequestHandler}
 };
 
 /// The current Neovim session
@@ -14,24 +15,45 @@ pub struct Session {
 }
 
 impl Session {
-    /// Create a Neovim connection using a Unix socket
-    pub fn from_socket(path: &str) -> Result<Session, Error> {
-        let reader = UnixStream::connect(path)?;
+    /// Create a Neovim connection using a TCP socket
+    pub fn from_tcp(addr: &str) -> Result<Session, Error> {
+        let reader = TcpStream::connect(addr)?;
         let writer = reader.try_clone()?;
-        let mut client = Client::new(reader, writer);
-        client.start_event_loop();
+        let client = Client::new(reader, writer);
 
         Ok(Session {
-            client: Connection::Socket(client),
+            client: Connection::TCP(client)
         })
     }
 
-    /// Synchronous function call
-    pub fn call(&mut self, method: &str, args: Vec<Value>) -> Result<(), Error> {
-        match self.client {
-            Connection::Socket(ref mut client) => client.call(method, args)?,
-        };
+    /// Create a Neovim connection using a Unix socket
+    #[cfg(unix)]
+    pub fn from_unix(path: &str) -> Result<Session, Error> {
+        let reader = UnixStream::connect(path)?;
+        let writer = reader.try_clone()?;
+        let client = Client::new(reader, writer);
 
-        Ok(())
+        Ok(Session {
+            client: Connection::UNIX(client),
+        })
+    }
+
+    pub fn start_event_loop(
+        &mut self,
+        request_handler: Option<Box<dyn RequestHandler + Send>>,
+        notification_handler: Option<Box<dyn NotificationHandler + Send>>
+    ) {
+        match self.client {
+            Connection::TCP(ref mut client) => client.start_event_loop(request_handler, notification_handler),
+            Connection::UNIX(ref mut client) => client.start_event_loop(request_handler, notification_handler)
+        }
+    }
+
+    /// Synchronous function call
+    pub fn call(&mut self, method: &str, args: Vec<Value>) -> Result<Value, Error> {
+        match self.client {
+            Connection::TCP(ref mut client) => Ok(client.call(method, args)?),
+            Connection::UNIX(ref mut client) => Ok(client.call(method, args)?),
+        }
     }
 }

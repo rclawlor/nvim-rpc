@@ -9,13 +9,15 @@ use crate::error::Error;
 impl {{name}} {
     {{#each functions}}
     /// Since: {{since}}
-    pub fn {{name}}(&self{{#each parameters}}, {{this.name}}: {{{this.parameter_type}}}{{/each}}) -> Result<{{#if return_type}}{{{return_type}}}{{else}}(){{/if}}, Error> {
-        self.session.call(
+    pub fn {{name}}(&mut self{{#each parameters}}, {{this.name}}: {{{this.parameter_type}}}{{/each}}) -> Result<Value, Error> {
+        Ok(self.session.call(
             "{{@root.prefix}}{{name}}",
+            {{#if parameters.[0]}}
             value_vec!({{#each parameters}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}})
-        )?;
-
-        Ok(())
+            {{else}}
+            Vec::new()
+            {{/if}}
+        )?)
     }
     {{#unless @last}}
 
