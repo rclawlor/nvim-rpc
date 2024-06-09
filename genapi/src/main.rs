@@ -158,6 +158,7 @@ fn generate_api(
     functions: Option<Vec<Function>>
 ) {
     let mut reg = Handlebars::new();
+    reg.register_template_file("buffer", "genapi/templates/buffer.hbs").unwrap();
     reg.register_template_file("type", "genapi/templates/type.hbs").unwrap();
     reg.register_template_file("function", "genapi/templates/function.hbs").unwrap();
 
@@ -186,11 +187,13 @@ fn generate_api(
             text = format!("{}{}", text, reg.render("function", &f).unwrap());
         }
     }
-    
+
+    let buf_text = reg.render("buffer", &buffer_functions).unwrap();
 
     println!("cargo:warning={:?}", buffer_functions);
 
     fs::create_dir_all("build").expect("Unable to create folder");
+    fs::write("build/buffer.rs", buf_text).expect("Unable to write file");
     fs::write("build/functions.rs", text).expect("Unable to write file");
 }
 
