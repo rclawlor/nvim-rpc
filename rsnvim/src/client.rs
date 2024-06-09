@@ -98,11 +98,18 @@ where
     ) {
         let r = request_handler.unwrap_or(Box::new(DefaultHandler::new()));
         let n = notification_handler.unwrap_or(Box::new(DefaultHandler::new()));
-        Self::dispatch_read_thread(self.reader.take().unwrap(), self.handles.clone(), r, n);
+        Self::dispatch_read_thread(
+            self.reader.take().unwrap(),
+            self.writer.clone(),
+            self.handles.clone(),
+            r,
+            n
+        );
     }
 
     fn dispatch_read_thread(
         mut reader: BufReader<R>,
+        writer: Arc<Mutex<BufWriter<W>>>,
         handles: Handles,
         request_handler: Box<dyn RequestHandler + Send>,
         notification_handler: Box<dyn NotificationHandler + Send>
@@ -119,7 +126,23 @@ where
                     msgid,
                     method,
                     params,
-                } => request_handler.handle_request(msgid, method, params),
+                } => {
+                    let response = match request_handler.handle_request(msgid, method, params) {
+                        Ok(result) => rpc::RpcMessage::RpcResponse {
+                            msgid,
+                            error: Value::Nil,
+                            result
+                        },
+                        Err(error) => rpc::RpcMessage::RpcResponse {
+                            msgid,
+                            error: Value::from(error),
+                            result: Value::Nil
+                        }
+                    };
+
+                    let writer = &mut *writer.lock().unwrap();
+                    rpc::encode(writer, response).unwrap();
+                },
                 rpc::RpcMessage::RpcResponse {
                     msgid,
                     result,
