@@ -116,18 +116,13 @@ impl Nvim {
 ///
 /// This struct exposes each way a user can create and interact with a buffer.
 pub struct Buffer {
-    data: Value
+    data: Value,
+    session: Session,
 }
 
 impl Buffer {
-    pub fn new(data: Value) -> Self {
-        Buffer { data }
-    }
-}
-
-impl From<Value> for Buffer {
-    fn from(value: Value) -> Self {
-        Buffer { data: value }
+    pub fn new(data: Value, session: Session) -> Self {
+        Buffer { data, session }
     }
 }
 
@@ -141,18 +136,13 @@ impl From<Buffer> for Value {
 ///
 /// This struct exposes each way a user can create and interact with a tabpage.
 pub struct Tabpage {
-    data: Value
+    data: Value,
+    session: Session,
 }
 
 impl Tabpage {
-    pub fn new(data: Value) -> Self {
-        Tabpage { data }
-    }
-}
-
-impl From<Value> for Tabpage {
-    fn from(value: Value) -> Self {
-        Tabpage { data: value }
+    pub fn new(data: Value, session: Session) -> Self {
+        Tabpage { data, session }
     }
 }
 
@@ -166,18 +156,13 @@ impl From<Tabpage> for Value {
 ///
 /// This struct exposes each way a user can create and interact with a window.
 pub struct Window {
-    data: Value
+    data: Value,
+    session: Session,
 }
 
 impl Window {
-    pub fn new(data: Value) -> Self {
-        Window { data }
-    }
-}
-
-impl From<Value> for Window {
-    fn from(value: Value) -> Self {
-        Window { data: value }
+    pub fn new(data: Value, session: Session) -> Self {
+        Window { data, session }
     }
 }
 
@@ -202,10 +187,22 @@ macro_rules! impl_asvalue {
     };
 }
 
+macro_rules! impl_asvalue_tuple {
+    ($($arg:ty), +) => {
+        impl AsValue for ($($arg), +) {
+            fn convert(&self) -> Value {
+                Value::from(0)
+            }
+        }
+    };
+}
+
 impl_asvalue!(u64);
 impl_asvalue!(i64);
 impl_asvalue!(f64);
 impl_asvalue!(bool);
+
+impl_asvalue_tuple!(i64, i64);
 
 impl AsValue for Value {
     fn convert(&self) -> Value {

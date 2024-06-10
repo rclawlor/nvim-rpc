@@ -1,5 +1,6 @@
 use handlebars::Handlebars;
 use rmpv::{decode, Value};
+use regex::Regex;
 use serde::Serialize;
 use std::fs;
 use std::process::Command;
@@ -132,11 +133,20 @@ fn value_to_type(value: &str) -> String {
         "void" => "".to_string(),
         "Array" => "Vec<Value>".to_string(),
         "Object" => "Value".to_string(),
+        "LuaRef" => "Value".to_string(),
         array if array.starts_with("ArrayOf(") => {
-            format!(
-                "Vec<{}>",
-                value_to_type(array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1])
-            )
+            let inner = array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1];
+            let re = Regex::new(r"([a-zA-Z]+), ([0-9]+)").expect("This is a valid regex");
+            if let Some(x) = re.captures(inner) {
+                let t = value_to_type(x.get(1).unwrap().as_str());
+                let n = x.get(2).unwrap().as_str().parse::<usize>().unwrap(); 
+                format!("({})", vec![t; usize::from(n)].join(", "))
+            } else {
+                format!(
+                    "Vec<{}>",
+                    value_to_type(array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1])
+                )
+            }
         },
         "Dictionary" => "Vec<(Value, Value)>".to_string(),
         other => other.to_string(),
