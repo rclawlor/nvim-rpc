@@ -9,7 +9,7 @@ use crate::error::Error;
 impl {{name}} {
     {{#each functions}}
     /// Since: {{since}}
-    pub fn {{name}}(&mut self{{#each parameters}}, {{this.name}}: {{{this.parameter_type}}}{{/each}}) -> Result<{{{return_type}}}, Error> {
+    pub fn {{name}}(&mut self{{#each parameters}}, {{this.name}}: {{{as_type this.parameter_type}}}{{/each}}) -> Result<{{{as_type return_type}}}, Error> {
         self.session.call(
             "{{@root.prefix}}{{name}}",
             {{#if parameters.[0]}}

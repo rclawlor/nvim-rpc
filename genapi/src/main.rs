@@ -1,7 +1,7 @@
 use handlebars::{Handlebars, handlebars_helper};
 use rmpv::{decode, Value};
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value as SValue;
 use std::fs;
 use std::process::Command;
@@ -21,8 +21,44 @@ pub struct Impl<'a> {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Parameter {
     name: String,
-    parameter_type: String,
+    parameter_type: Type,
 }
+
+/// 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub enum Type {
+    UNIT,
+    I64,
+    F64,
+    BOOL,
+    STRING,
+    VALUE,
+    VEC(Box<Type>),
+    TUPLE(Vec<Type>)
+}
+
+impl Type {
+    pub fn render_type(t: Type) -> String {
+        match t {
+            Type::UNIT => "()".to_string(),
+            Type::I64 => "i64".to_string(),
+            Type::F64 => "f64".to_string(),
+            Type::BOOL => "bool".to_string(),
+            Type::STRING => "String".to_string(),
+            Type::VALUE => "Value".to_string(),
+            Type::VEC(a) => {
+                format!("Vec<{}>", Type::render_type(*a))
+            },
+            Type::TUPLE(a) => {
+                format!("({})", a.iter().map(|x| Type::render_type(x.clone())).collect::<Vec<String>>().join(", "))
+            }
+        }
+    }
+}
+
+// A helper to render a `Type` in valid Rust syntax
+handlebars_helper!(as_type: |t: Type| Type::render_type(t));
+
 
 /// The attributes needed to construct a Rust function signature
 #[derive(Clone, Debug, Serialize)]
@@ -31,7 +67,7 @@ pub struct Function {
     since: Option<u64>,
     deprecated_since: Option<u64>,
     parameters: Vec<Parameter>,
-    return_type: String,
+    return_type: Type,
     method: bool,
 }
 
@@ -47,7 +83,7 @@ impl Function {
         let mut since: Option<u64> = None;
         let mut deprecated_since: Option<u64> = None;
         let mut parameters: Vec<Parameter> = Vec::new();
-        let mut return_type = "()".to_string();
+        let mut return_type = Type::UNIT;
         let mut method = false;
         for (k, v) in args {
             match k {
@@ -89,71 +125,36 @@ impl Function {
     }
 }
 
-/// The attributes needed to construct a Rust struct
-#[derive(Debug, Serialize)]
-pub struct Type {
-    name: String,
-    parameters: Vec<Parameter>,
-}
-
-impl Type {
-    /// Create Function from rmpv::Value
-    pub fn from_map(map: &(Value, Value)) -> Type {
-        let (key, value) = map;
-        let args = match value {
-            Value::Map(args) => args,
-            _ => panic!(),
-        };
-
-        let name = key.as_str().unwrap().to_string();
-        let mut parameters: Vec<Parameter> = Vec::new();
-        for (k, v) in args {
-            match k {
-                x if x.as_str().unwrap() == "parameters" => {
-                    for param in v.as_array().unwrap().iter() {
-                        parameters.push(Parameter {
-                            name: param[1].as_str().unwrap().to_string(),
-                            parameter_type: value_to_type(param[0].as_str().unwrap()),
-                        });
-                    }
-                }
-                _ => (),
-            }
-        }
-
-        Type { name, parameters }
-    }
-}
 
 // Check if function returns ()
 handlebars_helper!(no_ret: |a: SValue| a != SValue::from("()"));
 
 /// Map MessagePack types to Rust
-fn value_to_type(value: &str) -> String {
+fn value_to_type(value: &str) -> Type {
     match value {
-        "Integer" => "i64".to_string(),
-        "Float" => "f64".to_string(),
-        "Boolean" => "bool".to_string(),
-        "void" => "()".to_string(),
-        "Array" => "Vec<Value>".to_string(),
-        "Object" => "Value".to_string(),
-        "LuaRef" => "Value".to_string(),
+        "Integer" => Type::I64,
+        "Float" => Type::F64,
+        "Boolean" => Type::BOOL,
+        "void" => Type::UNIT,
+        "Array" => Type::VEC(Box::new(Type::VALUE)),
+        "Object" => Type::VALUE,
+        "LuaRef" => Type::VALUE,
         array if array.starts_with("ArrayOf(") => {
             let inner = array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1];
             let re = Regex::new(r"([a-zA-Z]+), ([0-9]+)").expect("This is a valid regex");
             if let Some(x) = re.captures(inner) {
                 let t = value_to_type(x.get(1).unwrap().as_str());
                 let n = x.get(2).unwrap().as_str().parse::<usize>().unwrap(); 
-                format!("({})", vec![t; usize::from(n)].join(", "))
+                Type::TUPLE(vec![t; usize::from(n)])
             } else {
-                format!(
-                    "Vec<{}>",
-                    value_to_type(array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1])
+                Type::VEC(
+                    Box::new(value_to_type(array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1]))
                 )
             }
         },
-        "Dictionary" => "Vec<(Value, Value)>".to_string(),
-        other => other.to_string(),
+        "Dictionary" => Type::VEC(Box::new(Type::TUPLE(vec![Type::VALUE, Type::VALUE]))),
+        "String" => Type::STRING,
+        _ => Type::UNIT,
     }
 }
 
@@ -165,16 +166,6 @@ fn parse_functions(functions: &Value) -> Vec<Function> {
     };
 
     arr.iter().map(Function::from_value).collect()
-}
-
-/// Generate Rust struct/enums for each type in the API
-fn parse_types(types: &Value) -> Vec<Type> {
-    let map = match types {
-        Value::Map(map) => map,
-        _ => panic!(),
-    };
-
-    map.iter().map(Type::from_map).collect()
 }
 
 /// Strips the `prefix` off a function name and removes the `param` to allow for
@@ -270,6 +261,8 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
         .register_template_file("object", "genapi/templates/object.hbs")
         .unwrap();
     registry
+        .register_helper("as_type", Box::new(as_type));
+    registry
         .register_helper("no_ret", Box::new(no_ret));
 
     let mut buffer_functions: Vec<Function> = Vec::new();
@@ -348,7 +341,6 @@ fn main() {
 
     let api = decode::read_value(&mut stdout).unwrap();
 
-    let mut _types: Option<Vec<Type>> = None;
     let mut functions: Option<Vec<Function>> = None;
     if let Value::Map(map) = api {
         for (k, v) in map.iter() {
@@ -358,9 +350,6 @@ fn main() {
                 }
                 x if x.as_str().unwrap() == "functions" => {
                     functions = Some(parse_functions(v));
-                }
-                x if x.as_str().unwrap() == "types" => {
-                    _types = Some(parse_types(v));
                 }
                 other => println!("cargo:warning=Other: {}", other),
             }
