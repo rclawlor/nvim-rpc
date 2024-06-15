@@ -1,7 +1,8 @@
-use handlebars::Handlebars;
+use handlebars::{Handlebars, handlebars_helper};
 use rmpv::{decode, Value};
 use regex::Regex;
 use serde::Serialize;
+use serde_json::Value as SValue;
 use std::fs;
 use std::process::Command;
 
@@ -46,7 +47,7 @@ impl Function {
         let mut since: Option<u64> = None;
         let mut deprecated_since: Option<u64> = None;
         let mut parameters: Vec<Parameter> = Vec::new();
-        let mut return_type = String::new();
+        let mut return_type = "()".to_string();
         let mut method = false;
         for (k, v) in args {
             match k {
@@ -124,13 +125,16 @@ impl Type {
     }
 }
 
+// Check if function returns ()
+handlebars_helper!(no_ret: |a: SValue| a != SValue::from("()"));
+
 /// Map MessagePack types to Rust
 fn value_to_type(value: &str) -> String {
     match value {
         "Integer" => "i64".to_string(),
         "Float" => "f64".to_string(),
         "Boolean" => "bool".to_string(),
-        "void" => "".to_string(),
+        "void" => "()".to_string(),
         "Array" => "Vec<Value>".to_string(),
         "Object" => "Value".to_string(),
         "LuaRef" => "Value".to_string(),
@@ -225,6 +229,7 @@ fn change_keywords(f: &Function) -> Function {
 /// Save the generated functions to a Rust file
 fn save_functions(
     registry: &Handlebars,
+    template: &str,
     filename: &str,
     structname: &str,
     prefix: &str,
@@ -234,7 +239,7 @@ fn save_functions(
     fs::write(
         format!("build/{}.rs", filename),
         registry.render(
-            "impl",
+            template,
             &Impl {
                 name: structname,
                 prefix,
@@ -259,8 +264,13 @@ fn save_functions(
 fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
     let mut registry = Handlebars::new();
     registry
-        .register_template_file("impl", "genapi/templates/impl.hbs")
+        .register_template_file("nvim", "genapi/templates/nvim.hbs")
         .unwrap();
+    registry
+        .register_template_file("object", "genapi/templates/object.hbs")
+        .unwrap();
+    registry
+        .register_helper("no_ret", Box::new(no_ret));
 
     let mut buffer_functions: Vec<Function> = Vec::new();
     let mut nvim_functions: Vec<Function> = Vec::new();
@@ -291,15 +301,25 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
 
     save_functions(
         &registry,
+        "object",
         "buffer",
         "Buffer",
         "nvim_buf_",
         "buffer",
         &buffer_functions,
     )?;
-    save_functions(&registry, "nvim", "Nvim", "nvim_", "", &nvim_functions)?;
     save_functions(
         &registry,
+        "nvim",
+        "nvim",
+        "Nvim",
+        "nvim_",
+        "",
+        &nvim_functions
+    )?;
+    save_functions(
+        &registry,
+        "object",
         "tabpage",
         "Tabpage",
         "nvim_tabpage_",
@@ -308,6 +328,7 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
     )?;
     save_functions(
         &registry,
+        "object",
         "window",
         "Window",
         "nvim_win_",

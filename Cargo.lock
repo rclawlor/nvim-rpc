@@ -75,6 +75,7 @@ dependencies = [
  "regex",
  "rmpv",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

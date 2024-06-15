@@ -43,7 +43,7 @@ macro_rules! args_as_value {
 #[macro_export]
 macro_rules! value_vec {
     ($($arg:expr), *) => {{
-        vec![$($crate::api::AsValue::convert(&$arg), )*]
+        vec![$($crate::api::convert::AsValue::convert(&$arg), )*]
     }}
 }
 
