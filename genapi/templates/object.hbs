@@ -13,7 +13,12 @@ impl {{name}} {
         {{#if (no_ret return_type)}}let ret = {{/if}}self.session.call(
             "{{@root.prefix}}{{name}}",
             value_vec!(self.data{{#if parameters.[0]}}, {{/if}}{{#each parameters}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}})
-        ){{#if (no_ret return_type)}}?;{{/if}}
+        )?;
+        {{#if (no_ret return_type)}}
+        Ok(ret{{generate_return return_type }})
+        {{else}}
+        Ok(())
+        {{/if}}
     }
     {{#unless @last}}
 

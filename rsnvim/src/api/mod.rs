@@ -50,6 +50,27 @@ impl Nvim {
         })
     }
 
+    /// Create a Neovim connection using stdin/stdout
+    ///
+    /// This allows RPC communication with the Neovim instance that spawned
+    /// this process.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use rsnvim::api::Nvim;
+    ///
+    /// let mut nvim = match Nvim::from_parent() {
+    ///     Ok(nvim) => nvim,
+    ///     Err(error) => panic!("Couldn't connect to parent session: {}", error)
+    /// };
+    /// ```
+    pub fn from_parent() -> Result<Self, Error> {
+        Ok(Nvim {
+            session: Session::from_parent()?,
+        })
+    }
+
     /// Create a Neovim connection using a Unix socket
     ///
     /// This allows RPC communication with any Neovim instance as it

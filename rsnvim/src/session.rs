@@ -1,5 +1,6 @@
 use rmpv::Value;
 use std::net::TcpStream;
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 
 use crate::{
@@ -46,6 +47,30 @@ impl Session {
             client: Connection::TCP(client),
         })
     }
+
+    /// Create a Neovim connection using stdin/stdout
+    ///
+    /// This allows RPC communication with the Neovim instance that spawned
+    /// this process.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use rsnvim::api::Nvim;
+    ///
+    /// let mut nvim = match Nvim::from_parent() {
+    ///     Ok(nvim) => nvim,
+    ///     Err(error) => panic!("Couldn't connect to parent session: {}", error)
+    /// };
+    /// ```
+    pub fn from_parent() -> Result<Session, Error> {
+        let client = Client::new(std::io::stdin(), std::io::stdout());
+
+        Ok(Session {
+            client: Connection::STDIO(client)
+        })
+    }
+
 
     /// Create a session using a Unix socket
     ///
@@ -106,6 +131,10 @@ impl Session {
             Connection::TCP(ref mut client) => {
                 client.start_event_loop(request_handler, notification_handler)
             }
+            Connection::STDIO(ref mut client) => {
+                client.start_event_loop(request_handler, notification_handler)
+            }
+            #[cfg(unix)]
             Connection::UNIX(ref mut client) => {
                 client.start_event_loop(request_handler, notification_handler)
             }
@@ -118,6 +147,8 @@ impl Session {
     pub fn call(&mut self, method: &str, args: Vec<Value>) -> Result<Value, Error> {
         match self.client {
             Connection::TCP(ref mut client) => Ok(client.call(method, args)?),
+            Connection::STDIO(ref mut client) => Ok(client.call(method, args)?),
+            #[cfg(unix)]
             Connection::UNIX(ref mut client) => Ok(client.call(method, args)?),
         }
     }

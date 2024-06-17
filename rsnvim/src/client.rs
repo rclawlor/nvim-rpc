@@ -1,6 +1,6 @@
 use rmpv::Value;
 use std::collections::HashMap;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Stdin, Stdout, Write};
 use std::net::TcpStream;
 use std::os::unix::net::UnixStream;
 use std::sync::{mpsc, Arc, Mutex};
@@ -170,6 +170,8 @@ where
 pub enum Connection {
     /// A TCP socket connection
     TCP(Client<TcpStream, TcpStream>),
+    /// A stdin/stdout connection
+    STDIO(Client<Stdin, Stdout>),
     /// A Unix socket connection
     #[cfg(unix)]
     UNIX(Client<UnixStream, UnixStream>),

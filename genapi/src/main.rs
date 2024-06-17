@@ -2,7 +2,6 @@ use handlebars::{Handlebars, handlebars_helper};
 use rmpv::{decode, Value};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as SValue;
 use std::fs;
 use std::process::Command;
 
@@ -25,7 +24,7 @@ pub struct Parameter {
 }
 
 /// 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Type {
     UNIT,
     I64,
@@ -34,7 +33,10 @@ pub enum Type {
     STRING,
     VALUE,
     VEC(Box<Type>),
-    TUPLE(Vec<Type>)
+    TUPLE(Vec<Type>),
+    BUFFER,
+    TABPAGE,
+    WINDOW
 }
 
 impl Type {
@@ -51,13 +53,35 @@ impl Type {
             },
             Type::TUPLE(a) => {
                 format!("({})", a.iter().map(|x| Type::render_type(x.clone())).collect::<Vec<String>>().join(", "))
-            }
+            },
+            Type::BUFFER => "Buffer".to_string(),
+            Type::TABPAGE => "Tabpage".to_string(),
+            Type::WINDOW => "Window".to_string()
+        }
+    }
+
+    pub fn generate_return(t: Type) -> String {
+        match t {
+            Type::I64 => ".as_i64().unwrap()".to_string(),
+            Type::F64 => ".as_f64().unwrap()".to_string(),
+            Type::BOOL => ".as_bool().unwrap()".to_string(),
+            Type::STRING => ".as_str().unwrap().to_string()".to_string(),
+            Type::VALUE => "".to_string(),
+            Type::VEC(a) => {
+                format!(".as_array().unwrap().iter().map(|x| x{}).collect()", Type::generate_return(*a))
+            },
+            Type::UNIT => "()".to_string(),
+            _ => "".to_string()
         }
     }
 }
 
 // A helper to render a `Type` in valid Rust syntax
 handlebars_helper!(as_type: |t: Type| Type::render_type(t));
+
+handlebars_helper!(generate_return: |t: Type| {
+    Type::generate_return(t)
+});
 
 
 /// The attributes needed to construct a Rust function signature
@@ -127,7 +151,7 @@ impl Function {
 
 
 // Check if function returns ()
-handlebars_helper!(no_ret: |a: SValue| a != SValue::from("()"));
+handlebars_helper!(no_ret: |a: Type| a != Type::UNIT);
 
 /// Map MessagePack types to Rust
 fn value_to_type(value: &str) -> Type {
@@ -145,7 +169,7 @@ fn value_to_type(value: &str) -> Type {
             if let Some(x) = re.captures(inner) {
                 let t = value_to_type(x.get(1).unwrap().as_str());
                 let n = x.get(2).unwrap().as_str().parse::<usize>().unwrap(); 
-                Type::TUPLE(vec![t; usize::from(n)])
+                Type::TUPLE(vec![t; n])
             } else {
                 Type::VEC(
                     Box::new(value_to_type(array.split_terminator(['(', ')']).collect::<Vec<&str>>()[1]))
@@ -154,6 +178,9 @@ fn value_to_type(value: &str) -> Type {
         },
         "Dictionary" => Type::VEC(Box::new(Type::TUPLE(vec![Type::VALUE, Type::VALUE]))),
         "String" => Type::STRING,
+        "Buffer" => Type::BUFFER,
+        "Tabpage" => Type::TABPAGE,
+        "Window" => Type::WINDOW,
         _ => Type::UNIT,
     }
 }
@@ -263,7 +290,10 @@ fn generate_api(functions: Option<Vec<Function>>) -> Result<(), Error> {
     registry
         .register_helper("as_type", Box::new(as_type));
     registry
+        .register_helper("generate_return", Box::new(generate_return));
+    registry
         .register_helper("no_ret", Box::new(no_ret));
+
 
     let mut buffer_functions: Vec<Function> = Vec::new();
     let mut nvim_functions: Vec<Function> = Vec::new();
