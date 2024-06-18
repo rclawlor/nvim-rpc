@@ -8,21 +8,22 @@ use crate::value_vec;
 impl Buffer {
     /// Since: 1
     pub fn line_count(&mut self) -> Result<i64, Error> {
-        let ret = self.session
-            .call("nvim_buf_line_count", value_vec!(self.data))?;
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_line_count", value_vec!(self.data))?;
         Ok(ret.as_i64().unwrap())
     }
 
     /// Since: 4
     pub fn attach(&mut self, send_buffer: bool, opts: Vec<(Value, Value)>) -> Result<bool, Error> {
-        let ret = self.session
-            .call("nvim_buf_attach", value_vec!(self.data, send_buffer, opts))?;
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_attach", value_vec!(self.data, send_buffer, opts))?;
         Ok(ret.as_bool().unwrap())
     }
 
     /// Since: 4
     pub fn detach(&mut self) -> Result<bool, Error> {
-        let ret = self.session.call("nvim_buf_detach", value_vec!(self.data))?;
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_detach", value_vec!(self.data))?;
         Ok(ret.as_bool().unwrap())
     }
 
@@ -33,10 +34,366 @@ impl Buffer {
         end: i64,
         strict_indexing: bool,
     ) -> Result<Vec<String>, Error> {
-        let ret = self.session.call(
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call(
             "nvim_buf_get_lines",
             value_vec!(self.data, start, end, strict_indexing),
         )?;
-        Ok(ret.as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_string()).collect())
+        Ok(ret
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect())
+    }
+
+    /// Since: 1
+    pub fn set_lines(
+        &mut self,
+        start: i64,
+        end: i64,
+        strict_indexing: bool,
+        replacement: Vec<String>,
+    ) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call(
+            "nvim_buf_set_lines",
+            value_vec!(self.data, start, end, strict_indexing, replacement),
+        )?;
+        Ok(())
+    }
+
+    /// Since: 7
+    pub fn set_text(
+        &mut self,
+        start_row: i64,
+        start_col: i64,
+        end_row: i64,
+        end_col: i64,
+        replacement: Vec<String>,
+    ) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call(
+            "nvim_buf_set_text",
+            value_vec!(
+                self.data,
+                start_row,
+                start_col,
+                end_row,
+                end_col,
+                replacement
+            ),
+        )?;
+        Ok(())
+    }
+
+    /// Since: 9
+    pub fn get_text(
+        &mut self,
+        start_row: i64,
+        start_col: i64,
+        end_row: i64,
+        end_col: i64,
+        opts: Vec<(Value, Value)>,
+    ) -> Result<Vec<String>, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call(
+            "nvim_buf_get_text",
+            value_vec!(self.data, start_row, start_col, end_row, end_col, opts),
+        )?;
+        Ok(ret
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect())
+    }
+
+    /// Since: 5
+    pub fn get_offset(&mut self, index: i64) -> Result<i64, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_get_offset", value_vec!(self.data, index))?;
+        Ok(ret.as_i64().unwrap())
+    }
+
+    /// Since: 1
+    pub fn get_var(&mut self, name: String) -> Result<Value, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_get_var", value_vec!(self.data, name))?;
+        Ok(ret.to_owned())
+    }
+
+    /// Since: 2
+    pub fn get_changedtick(&mut self) -> Result<i64, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_get_changedtick", value_vec!(self.data))?;
+        Ok(ret.as_i64().unwrap())
+    }
+
+    /// Since: 3
+    pub fn get_keymap(&mut self, mode: String) -> Result<Vec<Vec<(Value, Value)>>, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_get_keymap", value_vec!(self.data, mode))?;
+        Ok(ret
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| {
+                x.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|x| {
+                        let v = x.as_array().unwrap();
+                        (v[0].to_owned(), v[1].to_owned())
+                    })
+                    .collect()
+            })
+            .collect())
+    }
+
+    /// Since: 6
+    pub fn set_keymap(
+        &mut self,
+        mode: String,
+        lhs: String,
+        rhs: String,
+        opts: Vec<(Value, Value)>,
+    ) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call(
+            "nvim_buf_set_keymap",
+            value_vec!(self.data, mode, lhs, rhs, opts),
+        )?;
+        Ok(())
+    }
+
+    /// Since: 6
+    pub fn del_keymap(&mut self, mode: String, lhs: String) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call("nvim_buf_del_keymap", value_vec!(self.data, mode, lhs))?;
+        Ok(())
+    }
+
+    /// Since: 1
+    pub fn set_var(&mut self, name: String, value: Value) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call("nvim_buf_set_var", value_vec!(self.data, name, value))?;
+        Ok(())
+    }
+
+    /// Since: 1
+    pub fn del_var(&mut self, name: String) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call("nvim_buf_del_var", value_vec!(self.data, name))?;
+        Ok(())
+    }
+
+    /// Since: 1
+    pub fn get_name(&mut self) -> Result<String, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_get_name", value_vec!(self.data))?;
+        Ok(ret.as_str().unwrap().to_string())
+    }
+
+    /// Since: 1
+    pub fn set_name(&mut self, name: String) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call("nvim_buf_set_name", value_vec!(self.data, name))?;
+        Ok(())
+    }
+
+    /// Since: 5
+    pub fn is_loaded(&mut self) -> Result<bool, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_is_loaded", value_vec!(self.data))?;
+        Ok(ret.as_bool().unwrap())
+    }
+
+    /// Since: 7
+    pub fn delete(&mut self, opts: Vec<(Value, Value)>) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call("nvim_buf_delete", value_vec!(self.data, opts))?;
+        Ok(())
+    }
+
+    /// Since: 1
+    pub fn is_valid(&mut self) -> Result<bool, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_is_valid", value_vec!(self.data))?;
+        Ok(ret.as_bool().unwrap())
+    }
+
+    /// Since: 8
+    pub fn del_mark(&mut self, name: String) -> Result<bool, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_del_mark", value_vec!(self.data, name))?;
+        Ok(ret.as_bool().unwrap())
+    }
+
+    /// Since: 8
+    pub fn set_mark(
+        &mut self,
+        name: String,
+        line: i64,
+        col: i64,
+        opts: Vec<(Value, Value)>,
+    ) -> Result<bool, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call(
+            "nvim_buf_set_mark",
+            value_vec!(self.data, name, line, col, opts),
+        )?;
+        Ok(ret.as_bool().unwrap())
+    }
+
+    /// Since: 1
+    pub fn get_mark(&mut self, name: String) -> Result<(i64, i64), Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_get_mark", value_vec!(self.data, name))?;
+        let v = ret.as_array().unwrap();
+        Ok((v[0].as_i64().unwrap(), v[1].as_i64().unwrap()))
+    }
+
+    /// Since: 7
+    pub fn call(&mut self, fun: Value) -> Result<Value, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_call", value_vec!(self.data, fun))?;
+        Ok(ret.to_owned())
+    }
+
+    /// Since: 9
+    pub fn create_user_command(
+        &mut self,
+        name: String,
+        command: Value,
+        opts: Vec<(Value, Value)>,
+    ) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call(
+            "nvim_buf_create_user_command",
+            value_vec!(self.data, name, command, opts),
+        )?;
+        Ok(())
+    }
+
+    /// Since: 9
+    pub fn del_user_command(&mut self, name: String) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call("nvim_buf_del_user_command", value_vec!(self.data, name))?;
+        Ok(())
+    }
+
+    /// Since: 4
+    pub fn get_commands(
+        &mut self,
+        opts: Vec<(Value, Value)>,
+    ) -> Result<Vec<(Value, Value)>, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_get_commands", value_vec!(self.data, opts))?;
+        Ok(ret
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| {
+                let v = x.as_array().unwrap();
+                (v[0].to_owned(), v[1].to_owned())
+            })
+            .collect())
+    }
+
+    /// Since: 7
+    pub fn get_extmark_by_id(
+        &mut self,
+        ns_id: i64,
+        id: i64,
+        opts: Vec<(Value, Value)>,
+    ) -> Result<Vec<i64>, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call(
+            "nvim_buf_get_extmark_by_id",
+            value_vec!(self.data, ns_id, id, opts),
+        )?;
+        Ok(ret
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_i64().unwrap())
+            .collect())
+    }
+
+    /// Since: 7
+    pub fn get_extmarks(
+        &mut self,
+        ns_id: i64,
+        start: Value,
+        end: Value,
+        opts: Vec<(Value, Value)>,
+    ) -> Result<Vec<Value>, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call(
+            "nvim_buf_get_extmarks",
+            value_vec!(self.data, ns_id, start, end, opts),
+        )?;
+        Ok(ret
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.to_owned())
+            .collect())
+    }
+
+    /// Since: 7
+    pub fn set_extmark(
+        &mut self,
+        ns_id: i64,
+        line: i64,
+        col: i64,
+        opts: Vec<(Value, Value)>,
+    ) -> Result<i64, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call(
+            "nvim_buf_set_extmark",
+            value_vec!(self.data, ns_id, line, col, opts),
+        )?;
+        Ok(ret.as_i64().unwrap())
+    }
+
+    /// Since: 7
+    pub fn del_extmark(&mut self, ns_id: i64, id: i64) -> Result<bool, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call("nvim_buf_del_extmark", value_vec!(self.data, ns_id, id))?;
+        Ok(ret.as_bool().unwrap())
+    }
+
+    /// Since: 1
+    pub fn add_highlight(
+        &mut self,
+        ns_id: i64,
+        hl_group: String,
+        line: i64,
+        col_start: i64,
+        col_end: i64,
+    ) -> Result<i64, Error> {
+        let mut session = self.session.lock().unwrap();
+        let ret = session.call(
+            "nvim_buf_add_highlight",
+            value_vec!(self.data, ns_id, hl_group, line, col_start, col_end),
+        )?;
+        Ok(ret.as_i64().unwrap())
+    }
+
+    /// Since: 5
+    pub fn clear_namespace(
+        &mut self,
+        ns_id: i64,
+        line_start: i64,
+        line_end: i64,
+    ) -> Result<(), Error> {
+        let mut session = self.session.lock().unwrap();
+        session.call(
+            "nvim_buf_clear_namespace",
+            value_vec!(self.data, ns_id, line_start, line_end),
+        )?;
+        Ok(())
     }
 }

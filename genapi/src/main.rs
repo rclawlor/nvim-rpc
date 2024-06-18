@@ -71,9 +71,9 @@ impl Type {
                 format!("{}.as_array().unwrap().iter().map(|x| {}).collect()", var, Type::generate_return("x", *a))
             },
             Type::UNIT => "()".to_string(),
-            Type::BUFFER => format!("Buffer {{ data: {}.clone(), session: self.session }}", var),
-            Type::TABPAGE => format!("Tabpage {{ data: {}.clone(), session: self.session }}", var),
-            Type::WINDOW => format!("Window {{ data: {}.clone(), session: self.session }}", var),
+            Type::BUFFER => format!("Buffer {{ data: {}.clone(), session: self.session.clone() }}", var),
+            Type::TABPAGE => format!("Tabpage {{ data: {}.clone(), session: self.session.clone() }}", var),
+            Type::WINDOW => format!("Window {{ data: {}.clone(), session: self.session.clone() }}", var),
             Type::TUPLE(v) => {
                 format!("{{let v = {}.as_array().unwrap();\n\t\t({})}}",
                     var,

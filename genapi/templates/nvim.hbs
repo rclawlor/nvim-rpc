@@ -10,7 +10,8 @@ impl {{name}} {
     {{#each functions}}
     /// Since: {{since}}
     pub fn {{name}}(&mut self{{#each parameters}}, {{this.name}}: {{{as_type this.parameter_type}}}{{/each}}) -> Result<{{{as_type return_type}}}, Error> {
-        {{#if (no_ret return_type)}}let ret = {{/if}}self.session.call(
+        let mut session = self.session.lock().unwrap();
+        {{#if (no_ret return_type)}}let ret = {{/if}}session.call(
             "{{@root.prefix}}{{name}}",
             {{#if parameters.[0]}}
             value_vec!({{#each parameters}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}})

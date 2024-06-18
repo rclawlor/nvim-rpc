@@ -9,18 +9,19 @@ use crate::handler::{NotificationHandler, RequestHandler};
 use crate::session::Session;
 
 use rmpv::Value;
+use std::sync::{Arc, Mutex};
 
 /// The Neovim connection
 ///
 /// This struct exposes each way a user can connect to Neovim's RPC
 /// socket, alongside Rust functions for each API method.
 pub struct Nvim {
-    session: Session,
+    session: Arc<Mutex<Session>>,
 }
 
 impl Nvim {
     pub fn from_session(session: Session) -> Self {
-        Nvim { session }
+        Nvim { session: Arc::new(Mutex::new(session)) }
     }
 
     /// Create a Neovim connection using a TCP socket
@@ -46,7 +47,7 @@ impl Nvim {
     /// ```
     pub fn from_tcp(addr: &str) -> Result<Self, Error> {
         Ok(Nvim {
-            session: Session::from_tcp(addr)?,
+            session: Arc::new(Mutex::new(Session::from_tcp(addr)?)),
         })
     }
 
@@ -67,7 +68,7 @@ impl Nvim {
     /// ```
     pub fn from_parent() -> Result<Self, Error> {
         Ok(Nvim {
-            session: Session::from_parent()?,
+            session: Arc::new(Mutex::new(Session::from_parent()?)),
         })
     }
 
@@ -94,7 +95,7 @@ impl Nvim {
     #[cfg(unix)]
     pub fn from_unix(path: &str) -> Result<Self, Error> {
         Ok(Nvim {
-            session: Session::from_unix(path)?,
+            session: Arc::new(Mutex::new(Session::from_unix(path)?)),
         })
     }
 
@@ -121,7 +122,8 @@ impl Nvim {
         request_handler: Option<Box<dyn RequestHandler + Send>>,
         notification_handler: Option<Box<dyn NotificationHandler + Send>>,
     ) {
-        self.session
+        let mut session = self.session.lock().unwrap();
+        session
             .start_event_loop(request_handler, notification_handler)
     }
 
@@ -130,7 +132,8 @@ impl Nvim {
     /// This function allows for arbitrary Neovim function calls though should
     /// not be necessary as the API is exposed within this struct.
     pub fn call(&mut self, method: &str, args: Vec<Value>) {
-        self.session.call(method, args).unwrap();
+        let mut session = self.session.lock().unwrap();
+        session.call(method, args).unwrap();
     }
 }
 
@@ -139,11 +142,11 @@ impl Nvim {
 /// This struct exposes each way a user can create and interact with a buffer.
 pub struct Buffer {
     data: Value,
-    session: Session,
+    session: Arc<Mutex<Session>>,
 }
 
 impl Buffer {
-    pub fn new(data: Value, session: Session) -> Self {
+    pub fn new(data: Value, session: Arc<Mutex<Session>>) -> Self {
         Buffer { data, session }
     }
 }
@@ -159,11 +162,11 @@ impl From<Buffer> for Value {
 /// This struct exposes each way a user can create and interact with a tabpage.
 pub struct Tabpage {
     data: Value,
-    session: Session,
+    session: Arc<Mutex<Session>>,
 }
 
 impl Tabpage {
-    pub fn new(data: Value, session: Session) -> Self {
+    pub fn new(data: Value, session: Arc<Mutex<Session>>) -> Self {
         Tabpage { data, session }
     }
 }
@@ -179,11 +182,11 @@ impl From<Tabpage> for Value {
 /// This struct exposes each way a user can create and interact with a window.
 pub struct Window {
     data: Value,
-    session: Session,
+    session: Arc<Mutex<Session>>,
 }
 
 impl Window {
-    pub fn new(data: Value, session: Session) -> Self {
+    pub fn new(data: Value, session: Arc<Mutex<Session>>) -> Self {
         Window { data, session }
     }
 }
