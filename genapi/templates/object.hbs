@@ -15,7 +15,7 @@ impl {{name}} {
             value_vec!(self.data{{#if parameters.[0]}}, {{/if}}{{#each parameters}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}})
         )?;
         {{#if (no_ret return_type)}}
-        Ok(ret{{generate_return return_type }})
+        {{{generate_return return_type }}}
         {{else}}
         Ok(())
         {{/if}}

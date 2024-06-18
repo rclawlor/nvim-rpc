@@ -19,7 +19,7 @@ impl {{name}} {
             {{/if}}
         )?;
         {{#if (no_ret return_type)}}
-        Ok(ret{{generate_return return_type }})
+        {{{generate_return return_type }}}
         {{else}}
         Ok(())
         {{/if}}

@@ -60,18 +60,28 @@ impl Type {
         }
     }
 
-    pub fn generate_return(t: Type) -> String {
+    pub fn generate_return(var: &str, t: Type) -> String {
         match t {
-            Type::I64 => ".as_i64().unwrap()".to_string(),
-            Type::F64 => ".as_f64().unwrap()".to_string(),
-            Type::BOOL => ".as_bool().unwrap()".to_string(),
-            Type::STRING => ".as_str().unwrap().to_string()".to_string(),
-            Type::VALUE => "".to_string(),
+            Type::I64 => format!("{}.as_i64().unwrap()", var),
+            Type::F64 => format!("{}.as_f64().unwrap()", var),
+            Type::BOOL => format!("{}.as_bool().unwrap()", var),
+            Type::STRING => format!("{}.as_str().unwrap().to_string()", var),
+            Type::VALUE => format!("{}.to_owned()", var),
             Type::VEC(a) => {
-                format!(".as_array().unwrap().iter().map(|x| x{}).collect()", Type::generate_return(*a))
+                format!("{}.as_array().unwrap().iter().map(|x| {}).collect()", var, Type::generate_return("x", *a))
             },
             Type::UNIT => "()".to_string(),
-            _ => "".to_string()
+            Type::BUFFER => format!("Buffer {{ data: {}.clone(), session: self.session }}", var),
+            Type::TABPAGE => format!("Tabpage {{ data: {}.clone(), session: self.session }}", var),
+            Type::WINDOW => format!("Window {{ data: {}.clone(), session: self.session }}", var),
+            Type::TUPLE(v) => {
+                format!("{{let v = {}.as_array().unwrap();\n\t\t({})}}",
+                    var,
+                    v.iter().enumerate().map(
+                        |(n, x)| Type::generate_return(format!("v[{}]", n).as_str(), x.to_owned())
+                    ).collect::<Vec<String>>().join(", ")
+                )
+            }
         }
     }
 }
@@ -80,7 +90,16 @@ impl Type {
 handlebars_helper!(as_type: |t: Type| Type::render_type(t));
 
 handlebars_helper!(generate_return: |t: Type| {
-    Type::generate_return(t)
+    match t {
+        Type::TUPLE(v) => {
+            format!("let v = ret.as_array().unwrap();\n\t\tOk(({}))",
+                v.iter().enumerate().map(
+                    |(n, x)| Type::generate_return(format!("v[{}]", n).as_str(), x.to_owned())
+                ).collect::<Vec<String>>().join(", ")
+            )
+        }
+        other => format!("Ok({})", Type::generate_return("ret", other))
+    }
 });
 
 
