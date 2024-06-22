@@ -69,7 +69,7 @@ dependencies = [
 
 [[package]]
 name = "genapi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "handlebars",
  "regex",
@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "rsnvim"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rmpv",
 ]

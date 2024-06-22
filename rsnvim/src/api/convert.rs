@@ -74,13 +74,31 @@ impl AsValue for Buffer {
     }
 }
 
+impl AsValue for &Buffer {
+    fn convert(&self) -> Value {
+        self.data.clone()
+    }
+}
+
 impl AsValue for Tabpage {
     fn convert(&self) -> Value {
         self.data.clone()
     }
 }
 
+impl AsValue for &Tabpage {
+    fn convert(&self) -> Value {
+        self.data.clone()
+    }
+}
+
 impl AsValue for Window {
+    fn convert(&self) -> Value {
+        self.data.clone()
+    }
+}
+
+impl AsValue for &Window {
     fn convert(&self) -> Value {
         self.data.clone()
     }

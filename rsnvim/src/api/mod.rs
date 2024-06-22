@@ -140,6 +140,7 @@ impl Nvim {
 /// A Neovim buffer
 ///
 /// This struct exposes each way a user can create and interact with a buffer.
+#[derive(Clone)]
 pub struct Buffer {
     data: Value,
     session: Arc<Mutex<Session>>,
@@ -160,6 +161,7 @@ impl From<Buffer> for Value {
 /// A Neovim tabpage
 ///
 /// This struct exposes each way a user can create and interact with a tabpage.
+#[derive(Clone)]
 pub struct Tabpage {
     data: Value,
     session: Arc<Mutex<Session>>,
@@ -180,6 +182,7 @@ impl From<Tabpage> for Value {
 /// A Neovim buffer
 ///
 /// This struct exposes each way a user can create and interact with a window.
+#[derive(Clone)]
 pub struct Window {
     data: Value,
     session: Arc<Mutex<Session>>,
