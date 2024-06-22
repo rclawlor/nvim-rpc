@@ -109,6 +109,7 @@ where
         );
     }
 
+    /// Spawn new thread to handle reading the underlying Neovim connection
     fn dispatch_read_thread(
         mut reader: BufReader<R>,
         writer: Arc<Mutex<BufWriter<W>>>,

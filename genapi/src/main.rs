@@ -23,7 +23,7 @@ pub struct Parameter {
     parameter_type: Type,
 }
 
-/// 
+/// The MessagePack RPC type
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Type {
     UNIT,

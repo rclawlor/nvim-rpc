@@ -39,7 +39,7 @@ macro_rules! args_as_value {
 }
 
 /// Iterate through Rust types, converting them to a rmpv::Value,
-/// concatenating them into a Vec<rmpv::Value>.
+/// concatenating them into a Vec of rmpv::Value.
 #[macro_export]
 macro_rules! value_vec {
     ($($arg:expr), *) => {{
@@ -47,7 +47,7 @@ macro_rules! value_vec {
     }}
 }
 
-/// Returns a Vec<rmpv::Value> if the input is a rmpv::Value::Array,
+/// Returns a Vec of rmpv::Value if the input is a rmpv::Value::Array,
 /// otherwise return an error.
 macro_rules! try_arr {
     ($exp:expr) => {
