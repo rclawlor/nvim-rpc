@@ -2,6 +2,7 @@ use rmpv::Value;
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter, Read, Stdin, Stdout, Write};
 use std::net::TcpStream;
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{self, JoinHandle};
