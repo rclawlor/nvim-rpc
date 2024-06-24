@@ -394,16 +394,16 @@ fn main() {
     if let Value::Map(map) = api {
         for (k, v) in map.iter() {
             match k {
-                x if x.as_str().unwrap() == "version" => {
-                    println!("cargo:warning={}", x);
-                }
                 x if x.as_str().unwrap() == "functions" => {
                     functions = Some(parse_functions(v));
                 }
-                other => println!("cargo:warning=Other: {}", other),
+                other => println!("Key not implemented: {}", other),
             }
         }
     }
 
-    generate_api(functions).unwrap();
+    match generate_api(functions) {
+        Ok(_) => (),
+        Err(e) => println!("Error generating API: {}", e)
+    };
 }

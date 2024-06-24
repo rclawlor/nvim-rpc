@@ -18,3 +18,16 @@ impl From<handlebars::RenderError> for Error {
         Self::RenderError(value.to_string())
     }
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match &self {
+                Error::IoError(err) => err,
+                Error::RenderError(err) => err,
+            }
+        )
+    }
+}
