@@ -1,6 +1,6 @@
 [package]
 name = "rsnvim"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Ronan Lawlor <ronanlawlor2001@gmail.com>"]
 edition = "2021"
 description = "A Rust RPC interface for Neovim"
